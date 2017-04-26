@@ -21,21 +21,21 @@ def dedup_whitespace(txt):
     txt = re.sub(r' +', ' ', txt)
     return txt
 
-def to_newline_separable_toks(nlp, sent):
+def to_newline_separable_toks(nlp, replace_uncommon, sent):
     sent = [word.lower_ for word in nlp(dedup_whitespace(sent))]
-    return ' '.join(sent).replace(u'\n', u'\\n')
+    return replace_uncommon(' '.join(sent).replace(u'\n', u'\\n'))
 
-def write_with_punchlines(nlp, dot_whatever, jokes_with_punchlines):
+def write_with_punchlines(nlp, replace_uncommon, dot_whatever, jokes_with_punchlines):
     setups, punchlines = zip(*jokes_with_punchlines)
-    setups = [to_newline_separable_toks(nlp, setup) for setup in setups]
-    punchlines = [to_newline_separable_toks(nlp, punchline) for punchline in punchlines]
+    setups = [to_newline_separable_toks(nlp, replace_uncommon, setup) for setup in setups]
+    punchlines = [to_newline_separable_toks(nlp, replace_uncommon, punchline) for punchline in punchlines]
     with open('data/joke_setups'+dot_whatever, 'w') as joke_setup:
         joke_setup.write('\n'.join(setups).encode('utf-8'))
     with open('data/joke_punchlines'+dot_whatever, 'w') as joke_punchline:
         joke_punchline.write('\n'.join(punchlines).encode('utf-8'))
 
-def write_oneliners(nlp, dot_whatever, jokes_without_punchlines):
-    oneliners = [to_newline_separable_toks(nlp, oneliner) for oneliner in jokes_without_punchlines]
+def write_oneliners(nlp, replace_uncommon, dot_whatever, jokes_without_punchlines):
+    oneliners = [to_newline_separable_toks(nlp, replace_uncommon, oneliner) for oneliner in jokes_without_punchlines]
     with open('data/oneliners'+dot_whatever, 'w') as joke_oneliner:
         joke_oneliner.write('\n'.join(oneliners).encode('utf-8'))
 
@@ -57,16 +57,26 @@ print len(dedup_without_punchlines), 'unique oneliners'
 random.shuffle(dedup_with_punchlines)
 random.shuffle(dedup_without_punchlines)
 
-train_with_punchlines = dedup_with_punchlines[2048:]
-test_with_punchlines = dedup_with_punchlines[:2048]
-train_without_punchlines = dedup_without_punchlines[2048:]
-test_without_punchlines = dedup_without_punchlines[:2048]
+n_train_punchy = int(len(dedup_with_punchlines)*0.1)
+n_train_oneliner = int(len(dedup_without_punchlines)*0.1)
+
+train_with_punchlines = dedup_with_punchlines[n_train_punchy:]
+test_with_punchlines = dedup_with_punchlines[:n_train_punchy]
+train_without_punchlines = dedup_without_punchlines[n_train_oneliner:]
+test_without_punchlines = dedup_without_punchlines[:n_train_oneliner]
+
+n_characters = 100
+ctr = Counter((''.join([j[0] + j[1] for j in train_with_punchlines]) + ''.join(train_without_punchlines)).lower())
+print len(ctr), 'total distinct characters, filtering to', n_characters+1
+common_characters, _ = zip(*ctr.most_common(n_characters))
+uncommon_regex = '[^.' + ''.join(common_characters) + ']'
+replace_uncommon = lambda txt: re.sub(uncommon_regex, 'U', txt)
 
 nlp = spacy.load('en_core_web_md')
 
 print 'tokenizing and writing jokes to train/test files. (this takes a while) ...'
-write_oneliners(nlp, '.tst', test_without_punchlines)
-write_oneliners(nlp, '.trn', train_without_punchlines)
-write_with_punchlines(nlp, '.tst', test_with_punchlines)
-write_with_punchlines(nlp, '.trn', train_with_punchlines)
+write_oneliners(nlp, replace_uncommon, '.tst', test_without_punchlines)
+write_oneliners(nlp, replace_uncommon, '.trn', train_without_punchlines)
+write_with_punchlines(nlp, replace_uncommon, '.tst', test_with_punchlines)
+write_with_punchlines(nlp, replace_uncommon, '.trn', train_with_punchlines)
 print 'complete'
