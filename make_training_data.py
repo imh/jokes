@@ -34,6 +34,13 @@ def write_with_punchlines(nlp, replace_uncommon, dot_whatever, jokes_with_punchl
     with open('data/joke_punchlines'+dot_whatever, 'w') as joke_punchline:
         joke_punchline.write('\n'.join(punchlines).encode('utf-8'))
 
+url_strs = ('http://', 'https://', 'imgur.com', 'reddit.com', 'redd.it')
+def not_contains_url(punchline):
+    for s in url_strs:
+        if s in punchline:
+            return False
+    return True
+
 def write_oneliners(nlp, replace_uncommon, dot_whatever, jokes_without_punchlines):
     oneliners = [to_newline_separable_toks(nlp, replace_uncommon, oneliner) for oneliner in jokes_without_punchlines]
     with open('data/oneliners'+dot_whatever, 'w') as joke_oneliner:
@@ -54,6 +61,10 @@ dedup_without_punchlines = list(set([j['title'] for j in jokes_without_punchline
 print len(dedup_with_punchlines), 'unique jokes with punchlines'
 print len(dedup_without_punchlines), 'unique oneliners'
 
+dedup_with_punchlines = [j for j in dedup_with_punchlines if not_contains_url(j[1])]
+
+print len(dedup_with_punchlines), 'unique jokes with punchlines not containing certain urls'
+
 random.shuffle(dedup_with_punchlines)
 random.shuffle(dedup_without_punchlines)
 
@@ -69,10 +80,10 @@ n_characters = 100
 ctr = Counter((''.join([j[0] + j[1] for j in train_with_punchlines]) + ''.join(train_without_punchlines)).lower())
 print len(ctr), 'total distinct characters, filtering to', n_characters+1
 common_characters, _ = zip(*ctr.most_common(n_characters))
-uncommon_regex = '[^.' + ''.join(common_characters) + ']'
+uncommon_regex = '[^.' + ''.join(map(re.escape,common_characters)) + ']'
 replace_uncommon = lambda txt: re.sub(uncommon_regex, 'U', txt)
 
-nlp = spacy.load('en_core_web_md')
+nlp = spacy.load('en')
 
 print 'tokenizing and writing jokes to train/test files. (this takes a while) ...'
 write_oneliners(nlp, replace_uncommon, '.tst', test_without_punchlines)
