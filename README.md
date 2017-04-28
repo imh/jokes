@@ -27,3 +27,5 @@ Example JSON object:
   "ups": 362
 }
 ```
+
+Run `./explore.py` to poke around.
